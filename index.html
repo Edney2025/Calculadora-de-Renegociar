@@ -1,0 +1,439 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Renegociação de Empréstimos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        html, body {
+            height: 100vh;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+        .container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #e6f0fa, #ffffff);
+        }
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 1rem;
+        }
+        .section {
+            display: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .section.active {
+            display: block;
+            opacity: 1;
+        }
+        input[type="range"] {
+            accent-color: #10b981;
+        }
+        .content::-webkit-scrollbar {
+            display: none;
+        }
+        .content {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .loan-card {
+            transition: transform 0.2s ease-in-out;
+        }
+        .loan-card:hover {
+            transform: translateY(-2px);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .table-row:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        .help-section {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .help-section.active {
+            max-height: 1200px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container">
+        <header class="bg-indigo-900 text-white text-center py-4 fixed top-0 w-full z-10 shadow-lg">
+            <h1 class="text-xl font-bold">Renegociação de Empréstimos 💸</h1>
+        </header>
+        <div class="content mt-16 px-4">
+            <!-- Login Section -->
+            <div id="login-section" class="section active bg-white rounded-xl shadow-lg p-6 mx-auto max-w-md fade-in">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Autenticação 🔒</h2>
+                <div class="mb-4">
+                    <label for="cpf" class="block text-sm font-medium text-gray-700">CPF</label>
+                    <input type="text" id="cpf" placeholder="Digite seu CPF" maxlength="14" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="mb-4">
+                    <label for="pin" class="block text-sm font-medium text-gray-700">PIN (4 dígitos)</label>
+                    <input type="password" id="pin" placeholder="Digite seu PIN" maxlength="4" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <button onclick="login()" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition duration-200">Entrar 🚪</button>
+            </div>
+
+            <!-- Loan Details Section -->
+            <div id="loan-details-section" class="section bg-white rounded-xl shadow-lg p-6 mx-auto max-w-md">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">✅ Resumo de Empréstimos - Atualizado</h2>
+                <p class="text-sm text-gray-600 mb-4">Olá! Segue abaixo o resumo completo dos seus contratos de empréstimo, com detalhes de parcelas, vencimentos e valores. Qualquer dúvida, estou à disposição! 📞</p>
+                <div class="loan-card mb-6 bg-green-50 rounded-lg p-4 shadow-sm">
+                    <h3 class="text-lg font-semibold text-indigo-600">💼 Empréstimo 1 – Joanes Pereira</h3>
+                    <p class="text-sm text-gray-600">💰 Valor: R$ 4.000,00</p>
+                    <p class="text-sm text-gray-600">📆 Parcelamento: 24 parcelas de R$ 422,97</p>
+                    <p class="text-sm text-gray-600">🗓️ Primeira parcela: 15/12/2024</p>
+                    <p class="text-sm text-gray-600">🗓️ Última parcela: 15/11/2026</p>
+                    <p class="text-sm text-green-600">✅ Parcelas pagas: 8</p>
+                    <p class="text-sm text-yellow-600">⏳ Parcelas a vencer: 16</p>
+                    <p class="text-sm text-gray-600">📅 Próxima parcela: 15/08/2025 – R$ 422,97</p>
+                </div>
+                <div class="loan-card mb-6 bg-green-50 rounded-lg p-4 shadow-sm">
+                    <h3 class="text-lg font-semibold text-indigo-600">💼 Empréstimo 2 – Genilsa Barbosa Pereira</h3>
+                    <p class="text-sm text-gray-600">💰 Valor: R$ 4.000,00</p>
+                    <p class="text-sm text-gray-600">📆 Parcelamento: 15 parcelas de R$ 622,80</p>
+                    <p class="text-sm text-gray-600">🗓️ Primeira parcela: 15/11/2024</p>
+                    <p class="text-sm text-gray-600">🗓️ Última parcela: 15/01/2026</p>
+                    <p class="text-sm text-green-600">✅ Parcelas pagas: 9</p>
+                    <p class="text-sm text-yellow-600">⏳ Parcelas a vencer: 6</p>
+                    <p class="text-sm text-gray-600">📅 Próxima parcela: 15/08/2025 – R$ 622,80</p>
+                </div>
+                <div class="loan-card mb-6 bg-green-50 rounded-lg p-4 shadow-sm">
+                    <h3 class="text-lg font-semibold text-indigo-600">💼 Empréstimo 3 – Genilsa Barbosa Pereira</h3>
+                    <p class="text-sm text-gray-600">💰 Valor: R$ 2.000,00</p>
+                    <p class="text-sm text-gray-600">📆 Parcelamento: 36 parcelas de R$ 150,00</p>
+                    <p class="text-sm text-gray-600">🗓️ Primeira parcela: 15/03/2025</p>
+                    <p class="text-sm text-gray-600">🗓️ Última parcela: 15/02/2028</p>
+                    <p class="text-sm text-green-600">✅ Parcelas pagas: 5</p>
+                    <p class="text-sm text-yellow-600">⏳ Parcelas a vencer: 31</p>
+                    <p class="text-sm text-gray-600">📅 Próxima parcela: 15/09/2025 – R$ 150,00</p>
+                </div>
+                <div class="loan-card mb-6 bg-green-50 rounded-lg p-4 shadow-sm">
+                    <h3 class="text-lg font-semibold text-indigo-600">💼 Empréstimo 4 – Genilsa Barbosa Pereira</h3>
+                    <p class="text-sm text-gray-600">💰 Valor: R$ 3.000,00</p>
+                    <p class="text-sm text-gray-600">📆 Parcelamento: 36 parcelas de R$ 235,00</p>
+                    <p class="text-sm text-gray-600">🗓️ Primeira parcela: 15/04/2025</p>
+                    <p class="text-sm text-gray-600">🗓️ Última parcela: 15/03/2028</p>
+                    <p class="text-sm text-green-600">✅ Parcelas pagas: 4</p>
+                    <p class="text-sm text-yellow-600">⏳ Parcelas a vencer: 32</p>
+                    <p class="text-sm text-gray-600">📅 Próxima parcela: 15/09/2025 – R$ 235,00</p>
+                </div>
+                <div class="loan-card mb-6 bg-green-50 rounded-lg p-4 shadow-sm">
+                    <h3 class="text-lg font-semibold text-indigo-600">💼 Empréstimo 5 – Michele Barbosa Pereira</h3>
+                    <p class="text-sm text-gray-600">💰 Valor: R$ 2.000,00</p>
+                    <p class="text-sm text-gray-600">📆 Parcelamento: 24 parcelas de R$ 235,00</p>
+                    <p class="text-sm text-gray-600">🗓️ Primeira parcela: 15/06/2025</p>
+                    <p class="text-sm text-gray-600">🗓️ Última parcela: 15/05/2027</p>
+                    <p class="text-sm text-green-600">✅ Parcelas pagas: 2</p>
+                    <p class="text-sm text-yellow-600">⏳ Parcelas a vencer: 22</p>
+                    <p class="text-sm text-gray-600">📅 Próxima parcela: 15/09/2025 – R$ 235,00</p>
+                </div>
+                <div class="mb-6 bg-green-50 rounded-lg p-4 shadow-sm">
+                    <h3 class="text-lg font-semibold text-indigo-600">📊 Resumo Geral</h3>
+                    <p class="text-sm text-gray-600">📑 Total de empréstimos: 5</p>
+                    <p class="text-sm text-gray-600">💸 Valor total emprestado: R$ 15.000,00</p>
+                    <p class="text-sm text-green-600">✅ Parcelas pagas: 28</p>
+                    <p class="text-sm text-yellow-600">⏳ Parcelas a vencer: 107</p>
+                </div>
+                <div class="mb-6 bg-green-50 rounded-lg p-4 shadow-sm">
+                    <h3 class="text-lg font-semibold text-indigo-600">📅 Próximas Parcelas – Vencimento em 15/08/2025</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-gray-600 border-collapse">
+                            <thead>
+                                <tr class="bg-indigo-100">
+                                    <th class="p-2 text-left font-medium">💼 Empréstimo</th>
+                                    <th class="p-2 text-left font-medium">💵 Valor da Parcela (R$)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="table-row">
+                                    <td class="p-2">1️⃣ Empréstimo 1</td>
+                                    <td class="p-2">422,97</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="p-2">2️⃣ Empréstimo 2</td>
+                                    <td class="p-2">622,80</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="p-2">3️⃣ Empréstimo 3</td>
+                                    <td class="p-2">150,00</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="p-2">4️⃣ Empréstimo 4</td>
+                                    <td class="p-2">235,00</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="p-2">5️⃣ Empréstimo 5</td>
+                                    <td class="p-2">235,00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-sm font-semibold text-gray-800 mt-2">🔢 Valor total a ser pago no vencimento: 💰 R$ 1.665,77</p>
+                </div>
+                <button onclick="showRenegotiation()" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition duration-200">Ver Opções de Renegociação 💰</button>
+            </div>
+
+            <!-- Renegotiation Section -->
+            <div id="renegotiation-section" class="section bg-white rounded-xl shadow-lg p-6 mx-auto max-w-md">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Oferta Especial de Renegociação 💸</h2>
+                <p class="text-sm text-gray-600 mb-4">Selecione o número de parcelas (1 a 120 meses):</p>
+                <div class="mb-4">
+                    <label for="installments" class="block text-sm font-medium text-gray-700">Número de Parcelas</label>
+                    <input type="range" id="installments" min="1" max="120" value="36" class="w-full mt-2">
+                    <div class="flex justify-between text-sm text-gray-600 mt-1">
+                        <span>1</span>
+                        <span>120</span>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">Parcelas selecionadas: <span id="selected-installments">36</span></p>
+                    <p class="text-sm text-gray-600">Parcela do mês atual: <span id="current-month-payment">R$ 0,00</span></p>
+                    <p class="text-sm text-gray-600">Demais parcelas: <span id="other-payments">R$ 0,00</span> (Desconto: <span id="discount">0%</span>)</p>
+                    <p class="text-sm text-gray-600">Total para quitar: <span id="total-payment">R$ 0,00</span></p>
+                </div>
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-indigo-600 mb-2">📋 Opções de Parcelamento com Desconto</h3>
+                    <p class="text-sm text-gray-600 mb-2">💰 Quanto mais parcelas faltando, maior o desconto nas demais!</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-gray-600 border-collapse">
+                            <thead>
+                                <tr class="bg-indigo-100">
+                                    <th class="p-2 text-left font-medium">🔢 Faixa de Parcelas</th>
+                                    <th class="p-2 text-left font-medium">🎯 Desconto nas Demais Parcelas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="table-row">
+                                    <td class="p-2">✅ 1 a 20 parcelas</td>
+                                    <td class="p-2">🔻 25% de desconto</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="p-2">🔷 21 a 40 parcelas</td>
+                                    <td class="p-2">🔻 30% de desconto</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="p-2">🟡 41 a 60 parcelas</td>
+                                    <td class="p-2">🔻 35% de desconto</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="p-2">🟠 61 a 80 parcelas</td>
+                                    <td class="p-2">🔻 40% de desconto</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="p-2">🔴 81 a 100 parcelas</td>
+                                    <td class="p-2">🔻 45% de desconto</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="p-2">🟣 101 a 120 parcelas</td>
+                                    <td class="p-2">🔻 50% de desconto</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <button onclick="toggleHelp()" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition duration-200">✅ Como Funciona o Desconto ❓</button>
+                    <div id="help-section" class="help-section bg-blue-50 p-3 rounded-lg mt-2">
+                        <p class="text-sm text-gray-600">Se você deseja quitar parcelas antecipadamente, pode aproveitar um desconto especial, que varia de acordo com a quantidade de parcelas que ainda faltam.</p>
+                        <p class="text-sm text-gray-600 mt-2">💡 <strong>Quanto mais parcelas você antecipar, maior será o desconto aplicado!</strong></p>
+                        <p class="text-sm text-gray-600 mt-2">📊 <strong>Tabela de Desconto por Faixa de Parcelas:</strong></p>
+                        <table class="w-full text-sm text-gray-600 border-collapse mt-2">
+                            <thead>
+                                <tr class="bg-indigo-100">
+                                    <th class="p-2 text-left font-medium">Quantidade de Parcelas a Quitar</th>
+                                    <th class="p-2 text-left font-medium">Desconto Aplicado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="table-row"><td class="p-2">1 a 20 parcelas</td><td class="p-2">25%</td></tr>
+                                <tr class="table-row"><td class="p-2">21 a 40 parcelas</td><td class="p-2">30%</td></tr>
+                                <tr class="table-row"><td class="p-2">41 a 60 parcelas</td><td class="p-2">35%</td></tr>
+                                <tr class="table-row"><td class="p-2">61 a 80 parcelas</td><td class="p-2">40%</td></tr>
+                                <tr class="table-row"><td class="p-2">81 a 100 parcelas</td><td class="p-2">45%</td></tr>
+                                <tr class="table-row"><td class="p-2">101 a 120 parcelas</td><td class="p-2">50%</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="text-sm text-gray-600 mt-2">🧮 <strong>Exemplos Reais para Te Ajudar a Entender:</strong></p>
+                        <ul class="text-sm text-gray-600 list-none pl-0 mt-2">
+                            <li class="mb-2">🟩 <strong>Faixa de 1 a 20 parcelas – 25% de desconto</strong><br>🔹 Exemplo: Quitar 2 parcelas<br>🔸 Valor original: 2 × R$ 100,00 = R$ 200,00<br>🔸 Desconto: 25%<br>✅ Valor com desconto: 2 × R$ 75,00 = R$ 150,00</li>
+                            <li class="mb-2">🟦 <strong>Faixa de 21 a 40 parcelas – 30% de desconto</strong><br>🔹 Exemplo: Quitar 5 parcelas<br>🔸 Valor original: 5 × R$ 100,00 = R$ 500,00<br>🔸 Desconto: 30%<br>✅ Valor com desconto: 5 × R$ 70,00 = R$ 350,00</li>
+                            <li class="mb-2">🟨 <strong>Faixa de 41 a 60 parcelas – 35% de desconto</strong><br>🔹 Exemplo: Quitar 8 parcelas<br>🔸 Valor original: 8 × R$ 100,00 = R$ 800,00<br>🔸 Desconto: 35%<br>✅ Valor com desconto: 8 × R$ 65,00 = R$ 520,00</li>
+                            <li class="mb-2">🟧 <strong>Faixa de 61 a 80 parcelas – 40% de desconto</strong><br>🔹 Exemplo: Quitar 10 parcelas<br>🔸 Valor original: 10 × R$ 100,00 = R$ 1.000,00<br>🔸 Desconto: 40%<br>✅ Valor com desconto: 10 × R$ 60,00 = R$ 600,00</li>
+                            <li class="mb-2">🟥 <strong>Faixa de 81 a 100 parcelas – 45% de desconto</strong><br>🔹 Exemplo: Quitar 12 parcelas<br>🔸 Valor original: 12 × R$ 100,00 = R$ 1.200,00<br>🔸 Desconto: 45%<br>✅ Valor com desconto: 12 × R$ 55,00 = R$ 660,00</li>
+                            <li class="mb-2">🟪 <strong>Faixa de 101 a 120 parcelas – 50% de desconto</strong><br>🔹 Exemplo: Quitar 15 parcelas<br>🔸 Valor original: 15 × R$ 100,00 = R$ 1.500,00<br>🔸 Desconto: 50%<br>✅ Valor com desconto: 15 × R$ 50,00 = R$ 750,00</li>
+                        </ul>
+                        <p class="text-sm text-gray-600 mt-2">📌 <strong>Importante:</strong></p>
+                        <ul class="text-sm text-gray-600 list-disc pl-5 mt-2">
+                            <li>O desconto é aplicado somente sobre as parcelas futuras.</li>
+                            <li>Você não paga juros futuros.</li>
+                            <li>E pode economizar bastante quitando antes.</li>
+                        </ul>
+                    </div>
+                </div>
+                <a href="https://api.whatsapp.com/send?text=Ol%C3%A1%2C%20j%C3%A1%20selecionei%20a%20parcela%20que%20melhor%20cabe%20no%20meu%20or%C3%A7amento%20no%20momento.%20Gostaria%20de%20seguir%20com%20essa%20op%C3%A7%C3%A3o%20para%20a%20renegocia%C3%A7%C3%A3o%2C%20por%20favor." target="_blank" rel="noopener noreferrer" class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition duration-200 text-center block">Compartilhar via WhatsApp 📱</a>
+                <button onclick="backToDetails()" class="w-full bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400 transition duration-200 mt-2">Voltar ↩️</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CPF mask
+        document.getElementById('cpf').addEventListener('input', function (e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 11) value = value.slice(0, 11);
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3');
+            value = value.replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+            e.target.value = value;
+        });
+
+        // Login validation
+        function login() {
+            const cpf = document.getElementById('cpf').value.replace(/\D/g, '');
+            const pin = document.getElementById('pin').value;
+            if (cpf === '70059551968' && pin === '6836') {
+                document.getElementById('login-section').classList.remove('active');
+                document.getElementById('loan-details-section').classList.add('active');
+            } else {
+                alert('CPF ou PIN inválidos!');
+            }
+        }
+
+        // Navigation between sections
+        function showRenegotiation() {
+            document.getElementById('loan-details-section').classList.remove('active');
+            document.getElementById('renegotiation-section').classList.add('active');
+        }
+
+        function backToDetails() {
+            document.getElementById('renegotiation-section').classList.remove('active');
+            document.getElementById('loan-details-section').classList.add('active');
+        }
+
+        // Toggle help section
+        function toggleHelp() {
+            const helpSection = document.getElementById('help-section');
+            helpSection.classList.toggle('active');
+        }
+
+        // Renegotiation calculator
+        const principal = 27844.32; // Total amount to be paid (not displayed)
+        const monthlyRate = 0.003; // 0.3% monthly interest
+        const installmentsInput = document.getElementById('installments');
+        const selectedInstallments = document.getElementById('selected-installments');
+        const currentMonthPayment = document.getElementById('current-month-payment');
+        const otherPayments = document.getElementById('other-payments');
+        const discountDisplay = document.getElementById('discount');
+        const totalPayment = document.getElementById('total-payment');
+
+        function calculatePayment(months) {
+            if (months === 120) {
+                // Hardcoded example for 120 parcels
+                return {
+                    monthly: 280.00,
+                    discounted: 140.00,
+                    total: 280.00 + 119 * 140.00,
+                    discount: 50
+                };
+            }
+            if (months === 1) {
+                return { monthly: principal, total: principal, discount: 0 };
+            }
+            // Amortization formula: P * (r * (1 + r)^n) / ((1 + r)^n - 1)
+            const r = monthlyRate;
+            const n = months;
+            const monthly = principal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+            let discount = 0;
+            if (months <= 20) discount = 0.25;
+            else if (months <= 40) discount = 0.30;
+            else if (months <= 60) discount = 0.35;
+            else if (months <= 80) discount = 0.40;
+            else if (months <= 100) discount = 0.45;
+            else discount = 0.50;
+            
+            const currentMonth = monthly;
+            const discountedMonthly = months > 1 ? monthly * (1 - discount) : 0;
+            const total = currentMonth + (months - 1) * discountedMonthly;
+            
+            return {
+                monthly: currentMonth,
+                discounted: discountedMonthly,
+                total: total,
+                discount: Math.round(discount * 100)
+            };
+        }
+
+        function updatePayment() {
+            const months = parseInt(installmentsInput.value);
+            const { monthly, discounted, total, discount } = calculatePayment(months);
+            selectedInstallments.textContent = months;
+            currentMonthPayment.textContent = `R$ ${monthly.toFixed(2).replace('.', ',')}`;
+            otherPayments.textContent = months > 1 ? `R$ ${discounted.toFixed(2).replace('.', ',')}` : 'N/A';
+            discountDisplay.textContent = `${discount}%`;
+            totalPayment.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+        }
+
+        installmentsInput.addEventListener('input', updatePayment);
+        updatePayment(); // Initial calculation
+    </script>
+</body>
+</html>
